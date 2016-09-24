@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Triangle - a minimal WebGL program</title>
+</head>
+<body>
+    <canvas id="canvas" style="border: none;" width="500" height="500"></canvas>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.3.2/gl-matrix-min.js"></script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+        // attributes are per vertex:
+        attribute vec3 aVertexPosition;
+
+        // uniforms are equal for all vertices:
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        void main(void) {
+            gl_Position = uProjectionMatrix  * uModelViewMatrix * vec4(aVertexPosition, 1.0);
+        }
+    </script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+        void main(void) {
+            gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        }
+    </script>
+
+    <script src="../helper.js"></script>
+
+
+    <script>
+        "use strict";
+      
+        var canvas = document.getElementById("canvas");
+        var gl;
+        initGL(canvas);
+        var shaderProgram = compileAndLinkShaders("shader-vs", "shader-fs");
+        gl.useProgram(shaderProgram);
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+
+        var setModelViewMatrix  = uniformMatrix(shaderProgram,  "uModelViewMatrix");
+        var setProjectionMatrix = uniformMatrix(shaderProgram, "uProjectionMatrix");
+
+        //  /\
+        // /__\
+        var vertices = [ 0.0,  1.0,  0.0,  // center top
+                        -1.0, -1.0,  0.0,  // left bottom
+                         1.0, -1.0, 0.0]; // right bottom
+
+        var data = new Float32Array(vertices);
+        var triangleVertexPositionBuffer = createVertexBuffer(data);
+
+
+        var pMatrix  = mat4.create();
+        var mvMatrix = mat4.create();
+
+        // Set clear color to black, fully opaque
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Enable depth testing
+        gl.enable(gl.DEPTH_TEST);
+
+        drawScene(gl);
+
+        function initGL(canvas) {
+            gl = canvas.getContext("webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        }
+        
+        function drawScene() {
+            // Specify transformation from normalized device coordinates to window coordinates
+            gl.viewport(0, 0,                                 // lower left corner of the viewport rectangle, in pixels
+                       gl.viewportWidth, gl.viewportHeight);  // width and height of the viewport in pixels
+
+            // Clear viewport to clear color
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // Generates a perspective projection matrix:
+            mat4.perspective(pMatrix,
+                             45 *3.14159/ 180,                       // vertical field of view
+                             gl.viewportWidth / gl.viewportHeight,   // aspect
+                             0.1,                                    // near
+                             100.0);                                 // far
+
+
+            mat4.identity(mvMatrix);
+            mat4.translate(mvMatrix, mvMatrix, [0.0, 0.0, -7.0]);
+
+            // Set uniform variables:
+            setModelViewMatrix(mvMatrix);
+            setProjectionMatrix(pMatrix);
+
+            // Make VBO active (bound):
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+            // How to read from active VBO into attribute:
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
+                                   3,                                       // number of components per vertex attribute 1, 2, 3 or 4
+                                   gl.FLOAT,                                // the data type of each component in the array
+                                   false,
+                                   0,                                       // stride in bytes
+                                   0);                                      // offset in bytes
+
+            gl.drawArrays(gl.TRIANGLES,
+                          0,                // starting index in the array
+                          3);               // the number of indices (vertices) to be rendered
+
+        }
+    </script>
+</body>
+</html>
