@@ -57,3 +57,29 @@ function createIndexBuffer(data) {
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, gl.STATIC_DRAW);
     return buffer;
 }
+
+
+function handleTextureLoaded(image, texture) {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+    //gl.generateMipmap(gl.TEXTURE_2D);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+
+function cube() {
+    var vertices = [];
+    for (var iz = -1; iz <= 1; iz = iz + 2) {
+        for (var iy = -1; iy <= 1; iy = iy + 2) {
+            for (var ix = -1; ix <= 1; ix = ix + 2) {
+                vertices.push(ix); vertices.push(iy); vertices.push(iz);
+            }
+        }
+    }
+
+    var topIndices = [];
+
+    return { vertices: vertices };
+}

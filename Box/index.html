@@ -1,0 +1,184 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Box</title>
+</head>
+<body>
+    <canvas id="canvas" style="border: none;" width="500" height="500"></canvas>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.3.2/gl-matrix-min.js"></script>
+    <script id="shader-vs" type="x-shader/x-vertex">
+        // attributes are per vertex:
+        attribute vec3 aVertexPosition;
+        attribute vec2 aTextureCoord;
+
+        varying highp vec2 vTextureCoord;
+
+        // uniforms are equal for all vertices:
+        uniform mat4 uModelViewMatrix;
+        uniform mat4 uProjectionMatrix;
+
+        void main(void) {
+            gl_Position = uProjectionMatrix  * uModelViewMatrix * vec4(aVertexPosition, 1.0);
+            vTextureCoord = aTextureCoord;
+        }
+    </script>
+
+    <script id="shader-fs" type="x-shader/x-fragment">
+        precision mediump float;
+        varying highp vec2 vTextureCoord;
+        uniform sampler2D uSampler;
+        void main(void) {
+            //gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+            gl_FragColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        }
+    </script>
+
+    <script src="../helper.js"></script>
+
+
+    <script>
+        "use strict";
+      
+        var canvas = document.getElementById("canvas");
+        var gl;
+        initGL(canvas);
+        var shaderProgram = compileAndLinkShaders("shader-vs", "shader-fs");
+        gl.useProgram(shaderProgram);
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        shaderProgram.textureCoordinateAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+        gl.enableVertexAttribArray(shaderProgram.textureCoordinateAttribute);
+
+        var setModelViewMatrix  = uniformMatrix(shaderProgram,  "uModelViewMatrix");
+        var setProjectionMatrix = uniformMatrix(shaderProgram, "uProjectionMatrix");
+
+        var vertices = [-1.0, -1.0, -1.0,
+                        +1.0, -1.0, -1.0,
+                        +1.0, +1.0, -1.0,
+                        -1.0, +1.0, -1.0,
+                        -1.0, -1.0, +1.0,
+                        +1.0, -1.0, +1.0,
+                        +1.0, +1.0, +1.0,
+                        -1.0, +1.0, +1.0];
+
+        var textureCoordinates = [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, // bottom   
+                                  0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+                                  0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+                                  0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0,
+                                  0.0, 0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0
+        ];
+
+        var indices = [3, 2, 1, 3, 1, 0, // bottom
+                       4, 5, 6, 4, 6, 7,  // top 
+                       0, 1, 5, 0, 5, 4,
+                       1, 2, 6, 1, 6, 5,
+                       2, 3, 7, 2, 7, 6
+
+        ];
+
+        var data = new Float32Array(vertices);
+        var triangleVertexPositionBuffer = createVertexBuffer(data);
+
+        var textureCoordinatesBuffer = createVertexBuffer(new Float32Array(textureCoordinates));
+
+        var indicesBuffer = createIndexBuffer(new Uint16Array(indices));
+
+
+        var pMatrix  = mat4.create();
+        var mvMatrix = mat4.create();
+
+        // Set clear color to black, fully opaque
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        // Enable depth testing
+        gl.enable(gl.DEPTH_TEST);
+
+        var azimuth = 0.0;
+
+        var cubeTexture = gl.createTexture();
+        var cubeImage = new Image();
+        cubeImage.onload = function () { handleTextureLoaded(cubeImage, cubeTexture); }
+        cubeImage.src = "cubetexture.png";
+
+        var tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                      new Uint8Array([255, 0, 0, 255])); // red
+
+        function initGL(canvas) {
+            gl = canvas.getContext("webgl");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        }
+        
+        function drawScene() {
+            // Specify transformation from normalized device coordinates to window coordinates
+            gl.viewport(0, 0,                                 // lower left corner of the viewport rectangle, in pixels
+                       gl.viewportWidth, gl.viewportHeight);  // width and height of the viewport in pixels
+
+            // Clear viewport to clear color
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // Generates a perspective projection matrix:
+            mat4.perspective(pMatrix,
+                             45 *3.14159/ 180,                       // vertical field of view
+                             gl.viewportWidth / gl.viewportHeight,   // aspect
+                             0.1,                                    // near
+                             100.0);                                 // far
+            mat4.identity(mvMatrix);
+            mat4.lookAt(mvMatrix, [5, 5, 5], [0, 0, 0], [0, 0, 1]);
+
+          
+            mat4.rotateZ(mvMatrix, mvMatrix, azimuth * 3.14159 / 180);
+            mat4.rotateX(mvMatrix, mvMatrix, azimuth * 3.14159 / 180);
+
+            // Set uniform variables:
+            setModelViewMatrix(mvMatrix);
+            setProjectionMatrix(pMatrix);
+
+            // Make VBO active (bound):
+            gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
+            // How to read from active VBO into attribute:
+            gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,
+                                   3,                                       // number of components per vertex attribute 1, 2, 3 or 4
+                                   gl.FLOAT,                                // the data type of each component in the array
+                                   false,
+                                   0,                                       // stride in bytes
+                                   0);                                      // offset in bytes
+
+            // Make VBO active (bound):
+            gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordinatesBuffer);
+            // How to read from active VBO into attribute:
+            gl.vertexAttribPointer(shaderProgram.textureCoordinateAttribute,
+                                   2,                                       // number of components per vertex attribute 1, 2, 3 or 4
+                                   gl.FLOAT,                                // the data type of each component in the array
+                                   false,
+                                   0,                                       // stride in bytes
+                                   0);                                      // offset in bytes
+
+
+            // GL provides 32 texture registers; the first of these is gl.TEXTURE0. Make this active:
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+            var loc = gl.getUniformLocation(shaderProgram, "uSampler");
+            gl.uniform1i(loc, 0); // 0: gl.TEXTURE
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuffer);
+            gl.drawElements(gl.TRIANGLES,
+                            30,                 // the number of indices (vertices) to be rendered
+                            gl.UNSIGNED_SHORT, // the type of the values in the element array buffer
+                            0);                // offset               
+
+        }
+        function animation() {
+            drawScene();
+            azimuth = azimuth + 1;
+            requestAnimationFrame(animation);
+        }
+        requestAnimationFrame(animation);
+        
+        
+    </script>
+</body>
+</html>
